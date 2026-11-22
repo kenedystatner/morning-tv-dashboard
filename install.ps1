@@ -68,7 +68,8 @@ function Roku([string]$Ip, [string]$Key) {
 }
 function Get-RokuInfo([string]$Ip) {
   try {
-    $x = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 4 -Uri "http://${Ip}:8060/query/device-info").Content
+    $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 4 -Uri "http://${Ip}:8060/query/device-info"
+    $x = [Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray())   # names can contain non-English characters
     $get = { param($tag) if ($x -match "<$tag>(.*?)</$tag>") { $Matches[1] } else { "" } }
     $name = & $get "user-device-name"; if (-not $name) { $name = & $get "friendly-device-name" }
     $model = & $get "friendly-model-name"; if (-not $model) { $model = & $get "model-name" }
@@ -233,9 +234,11 @@ if (YesNo "Turn the TV on and show this PC on it for a moment to find its speake
 Title "4. Morning schedule"
 while ($true) {
   $t = Ask "What time should the TV turn on? (24-hour, e.g. 07:30)" $(if ($Old) { $Old.schedule.startTime } else { "08:00" })
-  $parsed = [datetime]::MinValue
-  if ([datetime]::TryParseExact("$t", @("H:mm", "HH:mm", "H", "h:mm tt", "h:mmtt", "h tt", "htt"), [Globalization.CultureInfo]::InvariantCulture, 0, [ref]$parsed)) {
-    $StartTime = $parsed.ToString("HH:mm"); break
+  # accepts 7, 07:30, 7:30, 7:30 AM, 7pm, 19:00
+  if ("$t".Trim() -match '^(\d{1,2})(?::(\d{2}))?\s*([aApP][mM])?$') {
+    $hh = [int]$Matches[1]; $mm = if ($Matches[2]) { [int]$Matches[2] } else { 0 }; $ap = "$($Matches[3])".ToLower()
+    if ($ap -eq "pm" -and $hh -lt 12) { $hh += 12 } elseif ($ap -eq "am" -and $hh -eq 12) { $hh = 0 }
+    if ($hh -le 23 -and $mm -le 59 -and (-not $ap -or [int]$Matches[1] -in 1..12)) { $StartTime = "{0:D2}:{1:D2}" -f $hh, $mm; break }
   }
   Say "  Please type a time like 07:30 or 7:30 AM." Yellow
 }
