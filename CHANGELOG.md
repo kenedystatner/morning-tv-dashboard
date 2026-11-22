@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.1 (2026-11-21)
+
+Fixes found by a full test of the downloaded version (install, 1-minute test, news briefing, uninstall):
+
+- Installer: the start-time question no longer rejects valid times (7, 07:30, 7:30 AM, 7pm all work).
+- Installer: Roku TV names with special characters display correctly in the TV list.
+- News: briefings with more than 8 stories switch to three columns so nothing is cut off; briefings now aim for 8 stories.
+- News: the spoken greeting matches the time of day instead of always saying "good morning".
+
 ## 1.0.0 (2026-11-21)
 
 First public release.

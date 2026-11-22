@@ -119,6 +119,7 @@ const METRIC = SETTINGS.units === "celsius";
   .story p{font-size:1.15vw;line-height:1.4;color:var(--ink-soft)}
   .story .src{font-size:.95vw;color:var(--ink-faint);margin-top:.5vh}
   .news-grid.dense .story{padding:1.1vh 1.1vw}.news-grid.dense .story h3{font-size:1.35vw}.news-grid.dense .story p{font-size:1.02vw}
+  .news-grid.cols3{grid-template-columns:repeat(3,1fr)}.news-grid.cols3 .story h3{font-size:1.25vw}.news-grid.cols3 .story p{font-size:.95vw}
   .news-wait{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;font-size:2vw;color:var(--ink-soft)}
   .dots span{display:inline-block;width:1vw;height:1vw;margin:0 .5vw;border-radius:50%;background:var(--accent);animation:b 1.2s infinite ease-in-out}
   .dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
@@ -542,7 +543,7 @@ function renderNews(){
   }
   const items=[].concat(n.items||[]);
   el.innerHTML=head+(n.intro?`<div class="news-intro">${esc(n.intro)}</div>`:"")+
-    `<div class="news-grid${items.length>6?" dense":""}">`+items.map((it,i)=>
+    `<div class="news-grid${items.length>6?" dense":""}${items.length>8?" cols3":""}">`+items.map((it,i)=>
       `<div class="story${i===speakIdx?" on":""}" data-s="${esc(it.section)}"><div class="tag">${esc(it.section==="US"?"U.S.":it.section)}</div>`+
       `<h3>${esc(it.headline)}</h3><p>${esc(it.summary)}</p><div class="src">${esc(it.source)}</div></div>`).join("")+`</div>`;
 }

@@ -46,18 +46,18 @@ $recent = @(); if (Test-Path $histFile) { $recent = @(Get-Content $histFile | Se
 $today = Get-Date -Format "dddd, MMMM d, yyyy"
 
 $system = @"
-You are a news editor preparing a short spoken morning briefing for one listener who lives in $Place ($($Loc.country)). Today is $today.
+You are a news editor preparing a short spoken news briefing for one listener who lives in $Place ($($Loc.country)). Today is $today and the local time is $(Get-Date -Format 'h:mm tt').
 Search the web for the most important news from roughly the last 24 hours, then write the briefing.
 Sections, in this order:
 - "National": 2 to 3 of the most important national stories for someone living in $($Loc.country).
 - "World": 2 to 3 of the most important international stories.
 - "Tech": 2 to 3 notable technology stories (AI, big tech, startups, chips, enterprise software).
 - "Local": 0 to 2 stories about $Place and the surrounding area, ONLY if genuinely worth knowing today (major public-safety events, serious weather, big transit or road disruptions, major local business or policy news). If nothing local clears that bar, include no Local items.
-At most 9 stories in total. Rules: factual and neutral, no opinions. Each summary is 1 or 2 short plain sentences (under 35 words) that are easy to listen to (no URLs, no abbreviations that sound odd aloud). Name the outlet you relied on.
+At most 8 stories in total. Rules: factual and neutral, no opinions. Each summary is 1 or 2 short plain sentences (under 35 words) that are easy to listen to (no URLs, no abbreviations that sound odd aloud). Name the outlet you relied on.
 Avoid repeating these recently shown headlines unless there is a major new development:
 $($recent -join "`n")
 Do not write any commentary between searches. When you are done searching, respond with ONLY a JSON object and no other text, in exactly this shape:
-{"intro":"one friendly spoken sentence","items":[{"section":"National","headline":"short headline","summary":"1-2 sentences","source":"Outlet name"}],"outro":"one short spoken closing sentence"}
+{"intro":"one friendly spoken sentence that suits the time of day","items":[{"section":"National","headline":"short headline","summary":"1-2 sentences","source":"Outlet name"}],"outro":"one short spoken closing sentence"}
 "@
 
 $tools = @(@{ type = "web_search_20250305"; name = "web_search"; max_uses = $MaxSearches
