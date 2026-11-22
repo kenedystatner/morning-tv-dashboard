@@ -44,10 +44,25 @@ Start-Sleep 2
 Remove-Item (Join-Path $EdgeProfile "Default\Sessions") -Recurse -Force -ErrorAction SilentlyContinue
 $Edge = Get-EdgePath
 $Page = ([Uri](Join-Path $Dir "morning-dashboard.html")).AbsoluteUri
-Start-Process $Edge -ArgumentList "--kiosk", $Page, "--edge-kiosk-type=fullscreen", "--user-data-dir=`"$EdgeProfile`"",
+# (a full-screen app window rather than kiosk mode, so Windows keys and shortcuts keep working)
+Start-Process $Edge -ArgumentList "--app=$Page", "--start-fullscreen", "--user-data-dir=`"$EdgeProfile`"",
   "--no-first-run", "--autoplay-policy=no-user-gesture-required"
 
-# keep the weather and calendar fresh until turn-off time
+# Until turn-off time: keep the weather and calendar fresh, and watch the TV. If you turn the TV off
+# with its remote, put the PC back to normal (same as Ctrl+Alt+X).
 $End = $deadline
-while ((Get-Date) -lt $End) { Start-Sleep 600; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Refresh }
+$nextRefresh = (Get-Date).AddMinutes(10)
+$offCount = 0
+Start-Sleep 45
+while ((Get-Date) -lt $End) {
+  Start-Sleep 15
+  $p = Get-TvPower
+  if ($p -and $p -ne "PowerOn") { $offCount++ } else { $offCount = 0 }
+  if ($offCount -ge 2) {
+    "$(Get-Date -Format 's')  TV was turned off - putting the PC back to normal" | Add-Content (Join-Path $Dir "refresh-log.txt")
+    Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$(Join-Path $Dir 'stop.ps1')`""
+    break
+  }
+  if ((Get-Date) -ge $nextRefresh) { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Refresh; $nextRefresh = (Get-Date).AddMinutes(10) }
+}
 [Dash.Power]::SetThreadExecutionState([uint32]2147483648) | Out-Null

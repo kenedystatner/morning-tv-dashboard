@@ -90,7 +90,9 @@ The installer offers to open this page for you. Your password is still required 
 | **Ctrl + Alt + N** | Spoken news briefing (turns the dashboard on if needed) |
 | **Ctrl + Alt + S** | Stop the news briefing |
 
-These work from anywhere. They come from four shortcuts the installer puts on your desktop; if you delete those shortcuts, the keys stop working.
+These work from anywhere. A small background helper (**hotkeys.ps1**) listens for them; the installer sets it to start every time you sign in. The four desktop icons the installer adds do the same things if you double-click them.
+
+You can also just **turn the TV off with its remote**: within about 30 seconds the PC notices and puts your monitor, sound and windows back, the same as Ctrl + Alt + X.
 
 While the dashboard is on, your PC's own monitor goes dark and sound plays through the TV. Both come back when the dashboard closes, and your open windows are put back where they were.
 
@@ -133,7 +135,7 @@ The voice comes from Microsoft Edge's free natural voices (Andrew by default; ot
 
 ## Troubleshooting
 
-The dashboard keeps simple logs in its folder: **refresh-log.txt** (weather and calendar), **audio-log.txt** (sound), **news-log.txt** (news briefing).
+The dashboard keeps simple logs in its folder: **refresh-log.txt** (weather and calendar), **hotkeys-log.txt** (keyboard shortcuts), **audio-log.txt** (sound), **news-log.txt** (news briefing).
 
 **The TV doesn't turn on**
 - On the TV, check **Control by mobile apps** is **Enabled** and **Fast TV start** is **on** (see "What you need").
@@ -144,6 +146,11 @@ The dashboard keeps simple logs in its folder: **refresh-log.txt** (weather and 
 **The TV turns on but the dashboard doesn't appear (and the PC's monitor looks frozen)**
 - Windows was still on its lock screen when it woke up. Turn off the sign-in after sleep (see "Two Windows settings" above). Until then, the dashboard waits and appears after you sign in; refresh-log.txt shows "PC is locked - waiting for sign-in".
 - If the screens are ever left in a strange state, press **Ctrl + Alt + X**, or **Windows key + P** > **PC screen only**.
+
+**The keyboard shortcuts don't do anything**
+- Check **hotkeys-log.txt** in the dashboard folder. Each key should say "ready", and each press is logged.
+- If a key says "NOT available", another program already uses that combination; close that program and sign out and back in.
+- If the log is empty or old, open Task Scheduler and run **Morning Dashboard - shortcuts**, or run install.bat again. Double-clicking the desktop icons always works in the meantime.
 
 **The TV turns on but shows the wrong input**
 - Run install.bat again and check the HDMI input number (it's printed next to the port on the TV).
@@ -219,6 +226,7 @@ The installer writes `config.json`; you can also edit it with Notepad (then run 
 | File | What it does |
 |---|---|
 | install.bat / install.ps1 | Setup (run again to change settings) |
+| hotkeys.ps1 | Background helper that listens for the Ctrl+Alt keyboard shortcuts |
 | uninstall.bat / uninstall.ps1 | Removes the schedule and shortcuts |
 | config.example.json | Example of the settings file the installer writes (config.json) |
 | morning-dashboard.html | The dashboard screen |

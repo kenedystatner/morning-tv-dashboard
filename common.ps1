@@ -16,6 +16,16 @@ function Invoke-Roku([string]$Key) {
   } catch { return $false }
 }
 
+# The TV's power state: "PowerOn" when on, "Ready"/"Standby" when off, "" if it can't be reached.
+function Get-TvPower {
+  try {
+    $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 4 -Uri "http://$($Config.tv.ip):8060/query/device-info"
+    $x = [Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray())
+    if ($x -match "<power-mode>(.*?)</power-mode>") { return $Matches[1] }
+  } catch {}
+  return ""
+}
+
 # Processes whose command line mentions a given text (e.g. this folder's start.ps1).
 function Get-ProcessByCommandLine([string]$Name, [string]$Text) {
   Get-CimInstance Win32_Process -Filter "Name='$Name'" |

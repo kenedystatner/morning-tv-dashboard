@@ -338,13 +338,23 @@ foreach ($s in $Shortcuts) {
     $lnk = $Shell.CreateShortcut((Join-Path $Desktop ($s.Name + ".lnk")))
     $lnk.TargetPath  = "powershell.exe"
     $lnk.Arguments   = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$(Join-Path $Dir $s.Script)`""
-    $lnk.Hotkey      = $s.Key
     $lnk.WindowStyle = 7
     $lnk.IconLocation = "$env:SystemRoot\System32\imageres.dll,$($s.Icon)"
     $lnk.Save()
   } catch { Say "Couldn't create shortcut '$($s.Name)': $($_.Exception.Message)" Yellow }
 }
-Say "Desktop shortcuts added (their key combinations work from anywhere):" Green
+# The keyboard shortcuts come from a small background listener (hotkeys.ps1) that starts at every sign-in.
+try {
+  $hkAction  = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$(Join-Path $Dir 'hotkeys.ps1')`""
+  $hkTrigger = New-ScheduledTaskTrigger -AtLogOn -User $Me
+  $hkSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew `
+                  -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
+  Register-ScheduledTask -TaskName "Morning Dashboard - shortcuts" -Action $hkAction -Trigger $hkTrigger -Principal $Principal -Settings $hkSettings -Force -ErrorAction Stop | Out-Null
+  Stop-ProcessByCommandLine "powershell.exe" (Join-Path $Dir "hotkeys.ps1")
+  Start-Sleep 1
+  Start-ScheduledTask -TaskName "Morning Dashboard - shortcuts"
+} catch { Say "Couldn't set up the keyboard shortcuts: $($_.Exception.Message)" Yellow }
+Say "Keyboard shortcuts ready (they work from anywhere; the desktop icons do the same thing):" Green
 Say "  Ctrl+Alt+D  dashboard on      Ctrl+Alt+X  dashboard off"
 Say "  Ctrl+Alt+N  news briefing     Ctrl+Alt+S  stop the news"
 

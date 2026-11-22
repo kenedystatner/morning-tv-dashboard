@@ -1,11 +1,14 @@
 # Morning TV Dashboard - uninstaller
-# Removes the daily scheduled tasks and the desktop shortcuts. Your files in this folder are left alone;
+# Removes the scheduled tasks, the keyboard shortcuts and the desktop shortcuts. Your files in this folder are left alone;
 # delete the folder yourself if you want everything gone.
 $Removed = 0
-foreach ($t in "Morning Dashboard - TV on", "Morning Dashboard - TV off") {
+foreach ($t in "Morning Dashboard - TV on", "Morning Dashboard - TV off", "Morning Dashboard - shortcuts") {
   try { Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction Stop; Write-Host "Removed scheduled task: $t" -ForegroundColor Green; $Removed++ }
   catch { Write-Host "No scheduled task named '$t' (or no permission to remove it)." }
 }
+# stop the keyboard-shortcut listener
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { $_.CommandLine -like "*$PSScriptRoot\hotkeys.ps1*" } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 $Desktop = [Environment]::GetFolderPath("Desktop")
 foreach ($n in "Dashboard On (Ctrl+Alt+D)", "Dashboard Off (Ctrl+Alt+X)", "News Debrief (Ctrl+Alt+N)", "Stop News (Ctrl+Alt+S)") {
   $p = Join-Path $Desktop "$n.lnk"

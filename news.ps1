@@ -90,7 +90,7 @@ for ($round = 0; $round -lt 4; $round++) {
 $s = $text.IndexOf("{"); $e = $text.LastIndexOf("}")
 if ($s -lt 0 -or $e -le $s) { Fail "Couldn't put the briefing together. Try again in a minute." "no JSON in reply: $($text.Substring(0, [Math]::Min(300, $text.Length)))" }
 try { $brief = $text.Substring($s, $e - $s + 1) | ConvertFrom-Json } catch { Fail "Couldn't put the briefing together. Try again in a minute." "bad JSON: $($_.Exception.Message)" }
-$items = @($brief.items)
+$items = @($brief.items | Select-Object -First 8)
 if ($items.Count -eq 0) { Fail "No stories came back. Try again in a minute." "reply had no items" }
 
 $costFile = Join-Path $Dir "news-costs.csv"

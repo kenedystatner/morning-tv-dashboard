@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 (2026-11-22)
+
+- Keyboard shortcuts are now handled by a small background helper (hotkeys.ps1, started at sign-in by the
+  "Morning Dashboard - shortcuts" scheduled task). Windows' desktop-shortcut keys were registered but often
+  never fired, which could leave the screen stuck on the TV. Each key press is logged to hotkeys-log.txt.
+- Turning the TV off with its remote now puts the PC back to normal (monitor, sound, windows) within about 30 seconds.
+- The dashboard opens as a full-screen Edge app window instead of kiosk mode, so Windows keys keep working.
+- News briefings never show more than 8 stories.
+
 ## 1.0.1 (2026-11-21)
 
 Fixes found by a full test of the downloaded version (install, 1-minute test, news briefing, uninstall):
