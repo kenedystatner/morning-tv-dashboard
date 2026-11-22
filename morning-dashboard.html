@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Morning Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500&family=Fraunces:ital,opsz,wght@1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+<!-- config.js is written from config.json by the scripts (install.ps1 / refresh-data.ps1). -->
+<script src="config.js"></script>
+<script>
+/* Defaults. Your own values come from config.json (via config.js); edit config.json, not this file. */
+const SETTINGS = Object.assign({
+  name: "",                    // optional: "Good morning, <name>"
+  city: "",
+  latitude: null,
+  longitude: null,
+  units: "fahrenheit",         // or "celsius"
+  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  dataRefreshMinutes: 5,       // how often the page re-reads the downloaded weather/calendar files
+  voice: "Andrew",             // news reader: Andrew, Aria, Jenny, Guy, Ava, Emma, Brian, Michelle...
+  voiceRate: 1.0,              // reading speed (0.8 = slower, 1.2 = faster)
+  quoteChangeMinutes: 60       // 0 = one quote per day
+}, window.DASHBOARD_CONFIG || {});
+const METRIC = SETTINGS.units === "celsius";
+</script>
+<style>
+  :root{
+    --ink:#f5efe6; --ink-soft:rgba(245,239,230,.72); --ink-faint:rgba(245,239,230,.45);
+    --card:rgba(255,255,255,.06); --line:rgba(255,255,255,.10);
+    --accent:#ffb46b;
+    --bg1:#1a1530; --bg2:#3a2342; --bg3:#7a3b3b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;cursor:none}
+  body{
+    font-family:"Outfit",system-ui,sans-serif;color:var(--ink);
+    background:radial-gradient(120% 90% at 15% 110%,var(--bg3) 0%,transparent 55%),
+               linear-gradient(160deg,var(--bg1) 0%,var(--bg2) 100%);
+    transition:background 4s ease;
+    display:grid;
+    grid-template-columns:1.05fr 1fr;
+    grid-template-rows:auto 1fr auto;
+    gap:2.2vh 2.6vw;
+    padding:4.5vh 3.6vw 4vh;
+  }
+  /* ---------- clock ---------- */
+  .hello{grid-column:1;grid-row:1}
+  .greeting{font-size:2.1vw;font-weight:300;color:var(--ink-soft);letter-spacing:.02em}
+  .clock{font-size:7.6vw;font-weight:200;line-height:.95;letter-spacing:-.03em;margin-top:.6vh}
+  .clock .ampm{font-size:2.4vw;font-weight:300;letter-spacing:.05em;margin-left:.6vw;color:var(--ink-soft)}
+  .date{font-size:2vw;font-weight:400;margin-top:1.2vh;color:var(--accent);letter-spacing:.01em}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:1.4vw;
+        backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  .label{font-size:1.05vw;font-weight:500;text-transform:uppercase;letter-spacing:.18em;color:var(--ink-faint)}
+
+  /* ---------- weather ---------- */
+  .weather{grid-column:1;grid-row:2;padding:2.6vh 2.2vw;display:flex;flex-direction:column;justify-content:space-between;gap:1.6vh;min-height:0;overflow:hidden}
+  .now{display:flex;align-items:center;gap:2vw}
+  .now .icon{font-size:4.6vw;line-height:1}
+  .now .temp{font-size:5vw;font-weight:200;line-height:1}
+  .now .desc{font-size:1.9vw;font-weight:400}
+  .now .meta{font-size:1.15vw;color:var(--ink-soft);margin-top:.6vh;line-height:1.5}
+  .hours{display:grid;grid-template-columns:repeat(6,1fr);gap:.6vw;border-top:1px solid var(--line);padding-top:1.6vh}
+  .hours div,.days div{text-align:center}
+  .h-time{font-size:1.15vw;color:var(--ink-faint)}
+  .h-icon{font-size:1.8vw;margin:.3vh 0}
+  .h-temp{font-size:1.35vw}
+  .h-rain{font-size:1vw;color:#8fc8ff;min-height:1.3em}
+  .days{display:grid;grid-template-columns:repeat(5,1fr);gap:.6vw;border-top:1px solid var(--line);padding-top:1.6vh}
+  .d-name{font-size:1.15vw;color:var(--ink-faint)}
+  .d-icon{font-size:1.7vw;margin:.3vh 0}
+  .d-temp{font-size:1.3vw}
+  .d-temp span{color:var(--ink-faint)}
+
+  /* ---------- calendar ---------- */
+  .calendar{grid-column:2;grid-row:1 / span 2;padding:3vh 1.6vw 1.6vh;display:flex;flex-direction:column;min-height:0}
+  .calendar .label{padding:0 .6vw 1.6vh}
+  .events{flex:1;overflow:hidden;padding:0 .6vw;display:flex;flex-direction:column;gap:1.2vh}
+  .ev{display:grid;grid-template-columns:9.5vw 1fr;gap:1.2vw;align-items:baseline;padding:1.3vh 1vw;border-radius:.8vw;
+      background:rgba(255,255,255,.05);border-left:.3vw solid var(--accent)}
+  .ev .t{font-size:1.35vw;color:var(--ink-soft);white-space:nowrap}
+  .ev .s{font-size:1.75vw;line-height:1.25}
+  .ev .l{font-size:1.15vw;color:var(--ink-faint);margin-top:.3vh}
+  .ev.past{opacity:.4;border-left-color:transparent}
+  .ev.now{background:rgba(255,180,107,.16)}
+  .ev.now .t::after{content:" · now";color:var(--accent)}
+  .ev.allday{border-left-color:#8fc8ff}
+  .sub{font-size:1.05vw;font-weight:500;text-transform:uppercase;letter-spacing:.18em;color:var(--ink-faint);margin-top:1.4vh}
+  .empty{font-size:1.7vw;color:var(--ink-soft);padding:1vh 1vw}
+  .note{font-size:1.1vw;color:var(--ink-faint);padding:0 1vw}
+
+  /* ---------- quote ---------- */
+  .quote{grid-column:1 / span 2;grid-row:3;display:flex;align-items:baseline;gap:1.4vw;padding:0 .4vw;
+         transition:opacity 1.2s ease}
+  .quote .mark{font-family:"Fraunces",serif;font-size:6vw;line-height:.5;color:var(--accent);transform:translateY(1.6vw)}
+  .quote blockquote{font-family:"Fraunces",serif;font-style:italic;font-weight:300;font-size:2.3vw;line-height:1.3}
+  .quote cite{display:block;font-family:"Outfit",sans-serif;font-style:normal;font-size:1.3vw;
+              color:var(--ink-soft);margin-top:.8vh;letter-spacing:.06em}
+  .quote cite::before{content:"— "}
+  .faded{opacity:0}
+  .stale{font-size:1vw;color:var(--ink-faint)}
+
+  /* ---------- news debrief overlay ---------- */
+  .news{position:fixed;inset:0;background:rgba(10,8,22,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+        display:flex;flex-direction:column;padding:4.5vh 4vw 4vh;opacity:0;pointer-events:none;transition:opacity .8s ease;z-index:10}
+  .news.show{opacity:1}
+  .news-head{display:flex;align-items:baseline;gap:1.4vw;margin-bottom:2.6vh}
+  .news-head h2{font-weight:300;font-size:3vw;letter-spacing:-.01em}
+  .news-head span{font-size:1.3vw;color:var(--ink-faint)}
+  .news-intro{font-family:"Fraunces",serif;font-style:italic;font-weight:300;font-size:1.7vw;color:var(--ink-soft);margin-bottom:2.4vh}
+  .news-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:min-content;gap:1.6vh 2vw;align-content:start;overflow:hidden}
+  .story{padding:1.6vh 1.2vw;border-radius:.9vw;background:rgba(255,255,255,.05);border-left:.3vw solid rgba(255,255,255,.12);transition:background .4s,border-color .4s}
+  .story.on{background:rgba(255,180,107,.16);border-left-color:var(--accent)}
+  .story .tag{font-size:.95vw;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  .story[data-s="World"] .tag{color:#8fc8ff}.story[data-s="Tech"] .tag{color:#b9a6ff}.story[data-s="Local"] .tag{color:#8fe3b0}
+  .story h3{font-weight:500;font-size:1.55vw;line-height:1.25;margin:.5vh 0}
+  .story p{font-size:1.15vw;line-height:1.4;color:var(--ink-soft)}
+  .story .src{font-size:.95vw;color:var(--ink-faint);margin-top:.5vh}
+  .news-grid.dense .story{padding:1.1vh 1.1vw}.news-grid.dense .story h3{font-size:1.35vw}.news-grid.dense .story p{font-size:1.02vw}
+  .news-wait{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;font-size:2vw;color:var(--ink-soft)}
+  .dots span{display:inline-block;width:1vw;height:1vw;margin:0 .5vw;border-radius:50%;background:var(--accent);animation:b 1.2s infinite ease-in-out}
+  .dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+  @keyframes b{0%,80%,100%{transform:scale(.4);opacity:.4}40%{transform:scale(1);opacity:1}}
+</style>
+</head>
+<body>
+
+  <section class="hello">
+    <div class="greeting" id="greeting">Good morning</div>
+    <div class="clock" id="clock">--:--</div>
+    <div class="date" id="date"></div>
+  </section>
+
+  <section class="card weather">
+    <div class="label" id="w-label">Weather</div>
+    <div class="now">
+      <div class="icon" id="w-icon">·</div>
+      <div class="temp" id="w-temp">--°</div>
+      <div>
+        <div class="desc" id="w-desc">Loading forecast…</div>
+        <div class="meta" id="w-meta"></div>
+      </div>
+    </div>
+    <div class="hours" id="w-hours"></div>
+    <div class="days" id="w-days"></div>
+  </section>
+
+  <section class="card calendar">
+    <div class="label">Today's schedule</div>
+    <div class="events" id="events"><div class="empty">Loading your schedule…</div></div>
+  </section>
+
+  <section class="quote" id="quote">
+    <div class="mark">“</div>
+    <div>
+      <blockquote id="q-text"></blockquote>
+      <cite id="q-who"></cite>
+    </div>
+  </section>
+
+
+  <section class="news" id="news"></section>
+<script>
+/* ---------------- clock & greeting ---------------- */
+const tz = SETTINGS.timeZone;
+function parts(d){
+  const f = new Intl.DateTimeFormat("en-US",{timeZone:tz,hour:"numeric",minute:"2-digit",hour12:true,
+            weekday:"long",month:"long",day:"numeric"}).formatToParts(d);
+  const o={}; f.forEach(p=>o[p.type]=p.value); return o;
+}
+function hour24(d){return +new Intl.DateTimeFormat("en-US",{timeZone:tz,hour:"numeric",hour12:false}).format(d)%24}
+
+function tick(){
+  const now=new Date(), p=parts(now), h=hour24(now);
+  document.getElementById("clock").innerHTML=`${p.hour}:${p.minute}<span class="ampm">${p.dayPeriod}</span>`;
+  document.getElementById("date").textContent=`${p.weekday}, ${p.month} ${p.day}`;
+  const g = h<12?"Good morning":h<17?"Good afternoon":"Good evening";
+  document.getElementById("greeting").textContent = SETTINGS.name ? `${g}, ${SETTINGS.name}` : g;
+  setSky(h);
+}
+/* background shifts gently through the day */
+function setSky(h){
+  const s=document.documentElement.style;
+  const sky = h<5 ?["#0f1226","#1d1b3a","#2b2350"]:
+              h<8 ?["#1a1530","#3a2342","#a0523f"]:   // dawn
+              h<11?["#16304a","#2e4a6b","#c98a4a"]:   // morning
+              h<16?["#13324a","#1f4e6b","#3f7a8a"]:   // day
+              h<19?["#2a1e3d","#5a2d4a","#c0623e"]:   // sunset
+                   ["#0f1226","#1d1b3a","#3a2a55"];
+  s.setProperty("--bg1",sky[0]);s.setProperty("--bg2",sky[1]);s.setProperty("--bg3",sky[2]);
+}
+tick(); setInterval(tick,1000*15);
+
+/* ---------------- weather (Open-Meteo, no key needed) ---------------- */
+const WMO = {
+  0:["☀️","Clear"],1:["🌤️","Mostly clear"],2:["⛅","Partly cloudy"],3:["☁️","Overcast"],
+  45:["🌫️","Fog"],48:["🌫️","Freezing fog"],
+  51:["🌦️","Light drizzle"],53:["🌦️","Drizzle"],55:["🌧️","Heavy drizzle"],56:["🌧️","Freezing drizzle"],57:["🌧️","Freezing drizzle"],
+  61:["🌦️","Light rain"],63:["🌧️","Rain"],65:["🌧️","Heavy rain"],66:["🌧️","Freezing rain"],67:["🌧️","Freezing rain"],
+  71:["🌨️","Light snow"],73:["🌨️","Snow"],75:["❄️","Heavy snow"],77:["🌨️","Snow grains"],
+  80:["🌦️","Showers"],81:["🌧️","Showers"],82:["⛈️","Heavy showers"],85:["🌨️","Snow showers"],86:["❄️","Snow showers"],
+  95:["⛈️","Thunderstorm"],96:["⛈️","Thunderstorm, hail"],99:["⛈️","Thunderstorm, hail"]
+};
+const wx = c => WMO[c] || ["·","—"];
+const night = (c,isDay) => (!isDay && (c===0||c===1)) ? "🌙" : wx(c)[0];
+const deg = SETTINGS.units==="celsius"?"°C":"°";
+
+/* The morning script on this PC downloads the weather and your calendar into
+   weather-data.js and calendar-data.js next to this page. We re-read them regularly. */
+function loadData(file){
+  return new Promise(res=>{
+    const s=document.createElement("script"); s.src=file+"?t="+Date.now();
+    s.onload=()=>{s.remove();res(true)}; s.onerror=()=>{s.remove();res(false)};
+    document.head.appendChild(s);
+  });
+}
+async function getWeather(){
+  if(await loadData("weather-data.js") && window.WEATHER_DATA) return window.WEATHER_DATA;
+  // fallback: ask the weather service directly
+  if(SETTINGS.latitude==null) throw new Error("no location set");
+  const u=new URL("https://api.open-meteo.com/v1/forecast");
+  Object.entries({
+    latitude:SETTINGS.latitude, longitude:SETTINGS.longitude, timezone:tz, forecast_days:6,
+    temperature_unit:SETTINGS.units, wind_speed_unit:METRIC?"kmh":"mph", precipitation_unit:METRIC?"mm":"inch",
+    current:"temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day",
+    hourly:"temperature_2m,precipitation_probability,weather_code,is_day",
+    daily:"weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset"
+  }).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r=await fetch(u); if(!r.ok) throw new Error(r.status); return r.json();
+}
+async function loadWeather(){
+  try{
+    const d = await getWeather();
+    const c = d.current;
+    document.getElementById("w-label").textContent = SETTINGS.city ? `Weather · ${SETTINGS.city}` : "Weather";
+    document.getElementById("w-icon").textContent = night(c.weather_code,c.is_day);
+    document.getElementById("w-temp").textContent = Math.round(c.temperature_2m)+deg;
+    document.getElementById("w-desc").textContent = wx(c.weather_code)[1];
+    const t = s => new Date(s+":00").toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
+    document.getElementById("w-meta").innerHTML =
+      `High ${Math.round(d.daily.temperature_2m_max[0])}${deg} · Low ${Math.round(d.daily.temperature_2m_min[0])}${deg} · Feels like ${Math.round(c.apparent_temperature)}${deg}<br>`+
+      `Wind ${Math.round(c.wind_speed_10m)} ${METRIC?"km/h":"mph"} · `+
+      `Sunrise ${t(d.daily.sunrise[0])} · Sunset ${t(d.daily.sunset[0])}`;
+
+    // next 12 hours, every 2 hours
+    const nowKey = c.time.slice(0,13); // "YYYY-MM-DDTHH"
+    let i = d.hourly.time.findIndex(x=>x.slice(0,13)===nowKey); if(i<0) i=0;
+    let hrs="";
+    for(let k=1;k<=6;k++){
+      const j=i+k*2; if(j>=d.hourly.time.length) break;
+      const hh = new Date(d.hourly.time[j]+":00").toLocaleTimeString("en-US",{hour:"numeric"});
+      const p = d.hourly.precipitation_probability[j];
+      hrs+=`<div><div class="h-time">${hh}</div><div class="h-icon">${night(d.hourly.weather_code[j],d.hourly.is_day[j])}</div>
+            <div class="h-temp">${Math.round(d.hourly.temperature_2m[j])}°</div><div class="h-rain">${p>=20?"💧"+p+"%":""}</div></div>`;
+    }
+    document.getElementById("w-hours").innerHTML=hrs;
+
+    let days="";
+    for(let k=1;k<=5;k++){
+      const name = new Date(d.daily.time[k]+"T12:00").toLocaleDateString("en-US",{weekday:"short"});
+      days+=`<div><div class="d-name">${name}</div><div class="d-icon">${wx(d.daily.weather_code[k])[0]}</div>
+             <div class="d-temp">${Math.round(d.daily.temperature_2m_max[k])}° <span>${Math.round(d.daily.temperature_2m_min[k])}°</span></div></div>`;
+    }
+    document.getElementById("w-days").innerHTML=days;
+  }catch(e){
+    document.getElementById("w-desc").innerHTML = `<span class="stale">Weather unavailable right now; retrying…</span>`;
+  }
+}
+
+/* ---------- tiny iCalendar reader: today's events incl. recurring ---------- */
+function parseICS(text){
+  const lines = text.replace(/\r\n[ \t]/g,"").replace(/\n[ \t]/g,"").split(/\r?\n/);
+  const events=[]; let ev=null;
+  for(const line of lines){
+    if(line==="BEGIN:VEVENT"){ev={exdates:[]};continue}
+    if(line==="END:VEVENT"){if(ev)events.push(ev);ev=null;continue}
+    if(!ev) continue;
+    const i=line.indexOf(":"); if(i<0) continue;
+    const left=line.slice(0,i), value=line.slice(i+1);
+    const [name,...params]=left.split(";");
+    const p={}; params.forEach(x=>{const [k,v]=x.split("=");p[k.toUpperCase()]=v});
+    const unesc=s=>s.replace(/\\n/gi,"\n").replace(/\\,/g,",").replace(/\\;/g,";").replace(/\\\\/g,"\\");
+    switch(name.toUpperCase()){
+      case "UID": ev.uid=value; break;
+      case "SUMMARY": ev.summary=unesc(value); break;
+      case "LOCATION": ev.location=unesc(value); break;
+      case "STATUS": ev.status=value.toUpperCase(); break;
+      case "DTSTART": ev.start=icsDate(value,p); ev.allDay=(p.VALUE==="DATE"||/^\d{8}$/.test(value)); break;
+      case "DTEND": ev.end=icsDate(value,p); break;
+      case "DURATION": ev.duration=value; break;
+      case "RRULE": ev.rrule=Object.fromEntries(value.split(";").map(x=>x.split("="))); break;
+      case "EXDATE": value.split(",").forEach(v=>ev.exdates.push(icsDate(v,p))); break;
+      case "RECURRENCE-ID": ev.recurrenceId=icsDate(value,p); break;
+    }
+  }
+  return events;
+}
+/* Times with TZID are treated as the PC's local time zone (same zone here). */
+function icsDate(v,p){
+  const m=v.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/); if(!m) return null;
+  const [_,y,mo,d,h="0",mi="0",s="0",z]=m;
+  return z ? new Date(Date.UTC(+y,+mo-1,+d,+h,+mi,+s)) : new Date(+y,+mo-1,+d,+h,+mi,+s);
+}
+function parseDuration(s){ // P1DT2H30M
+  const m=(s||"").match(/P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?/); if(!m) return 0;
+  return ((+m[1]||0)*7*86400+(+m[2]||0)*86400+(+m[3]||0)*3600+(+m[4]||0)*60+(+m[5]||0))*1000;
+}
+const DAYS=["SU","MO","TU","WE","TH","FR","SA"];
+const dayKey=d=>d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+const midnight=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
+const daysBetween=(a,b)=>Math.round((midnight(b)-midnight(a))/86400000);
+
+/* Does a recurring event (master) have an occurrence on the given day? */
+function occursOn(ev, day){
+  const r=ev.rrule, s=ev.start; if(midnight(day)<midnight(s)) return false;
+  const freq=r.FREQ, interval=+(r.INTERVAL||1);
+  const until=r.UNTIL?icsDate(r.UNTIL,{}):null, count=r.COUNT?+r.COUNT:null;
+  const byday=r.BYDAY?r.BYDAY.split(","):null;
+  const bymonthday=r.BYMONTHDAY?r.BYMONTHDAY.split(",").map(Number):null;
+  const matches=d=>{
+    const diff=daysBetween(s,d);
+    if(freq==="DAILY") return diff%interval===0 && (!byday||byday.some(b=>b.slice(-2)===DAYS[d.getDay()]));
+    if(freq==="WEEKLY"){
+      const wk=x=>{const m=midnight(x);m.setDate(m.getDate()-((m.getDay()+6)%7));return m}; // weeks start Monday
+      const weeks=Math.round((wk(d)-wk(s))/(7*86400000));
+      const days=byday?byday.map(b=>b.slice(-2)):[DAYS[s.getDay()]];
+      return weeks%interval===0 && days.includes(DAYS[d.getDay()]);
+    }
+    if(freq==="MONTHLY"){
+      const months=(d.getFullYear()-s.getFullYear())*12+d.getMonth()-s.getMonth();
+      if(months%interval) return false;
+      if(byday){ return byday.some(b=>{
+        const mm=b.match(/^([+-]?\d)?(\w\w)$/); if(!mm||DAYS[d.getDay()]!==mm[2]) return false;
+        if(!mm[1]) return true; const n=+mm[1];
+        if(n>0) return Math.ceil(d.getDate()/7)===n;
+        const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(); return Math.ceil((last-d.getDate()+1)/7)===-n;
+      });}
+      return (bymonthday||[s.getDate()]).includes(d.getDate());
+    }
+    if(freq==="YEARLY"){
+      const years=d.getFullYear()-s.getFullYear();
+      return years%interval===0 && d.getMonth()===s.getMonth() && d.getDate()===s.getDate();
+    }
+    return false;
+  };
+  if(until && midnight(day)>until) return false;
+  if(!matches(day)) return false;
+  if(count){ // count occurrences from the start up to this day
+    let n=0; const d=midnight(s);
+    while(d<=midnight(day)){ if(matches(d)) n++; if(n>count) return false; d.setDate(d.getDate()+1); }
+  }
+  return true;
+}
+
+/* All events that fall on `day`, as {start,end,allDay,summary,location} */
+function eventsOn(events, day){
+  const out=[], overrides={};
+  events.filter(e=>e.recurrenceId).forEach(e=>{(overrides[e.uid]=overrides[e.uid]||[]).push(e)});
+  const k=dayKey(day);
+  for(const ev of events){
+    if(!ev.start || ev.status==="CANCELLED") continue;
+    const len = ev.end ? ev.end-ev.start : ev.duration ? parseDuration(ev.duration) : (ev.allDay?86400000:0);
+    if(ev.rrule && !ev.recurrenceId){
+      if(!occursOn(ev,day)) continue;
+      const st=new Date(day.getFullYear(),day.getMonth(),day.getDate(),ev.start.getHours(),ev.start.getMinutes());
+      if(ev.exdates.some(x=>x && dayKey(x)===k && (ev.allDay || x.getHours()===st.getHours()&&x.getMinutes()===st.getMinutes()))) continue;
+      if((overrides[ev.uid]||[]).some(o=>o.recurrenceId && dayKey(o.recurrenceId)===k)) continue; // moved/changed instance
+      out.push({start:st,end:new Date(+st+len),allDay:ev.allDay,summary:ev.summary,location:ev.location});
+    } else {
+      // single event (or a changed instance): include if it overlaps the day
+      const end=new Date(+ev.start+len), d0=midnight(day), d1=new Date(+d0+86400000);
+      if(ev.start<d1 && (end>d0 || (+end===+ev.start && ev.start>=d0)))
+        out.push({start:ev.start,end,allDay:ev.allDay,summary:ev.summary,location:ev.location});
+    }
+  }
+  return out.sort((a,b)=>(b.allDay-a.allDay)||(a.start-b.start));
+}
+
+
+const fmtTime=d=>d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
+const esc=s=>(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function row(e,now){
+  const cls = e.allDay?"allday":(e.end<=now?"past":(e.start<=now?"now":""));
+  const t = e.allDay?"All day":`${fmtTime(e.start)}`;
+  return `<div class="ev ${cls}"><div class="t">${t}</div><div><div class="s">${esc(e.summary)||"(no title)"}</div>`+
+         (e.location?`<div class="l">${esc(e.location)}</div>`:"")+`</div></div>`;
+}
+async function loadCalendar(){
+  const box=document.getElementById("events");
+  const ok = await loadData("calendar-data.js");
+  if(!ok || !window.CALENDAR_ICS || !window.CALENDAR_ICS.length){
+    box.innerHTML=`<div class="empty">No calendar yet.</div><div class="note">Add your calendar's secret iCal link to calendar-link.txt in the dashboard folder (or run install.ps1 again).</div>`;
+    return;
+  }
+  const events = [].concat(window.CALENDAR_ICS).flatMap(t=>parseICS(t));
+  const now=new Date(), today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const tomorrow=new Date(+today+86400000);
+  // The panel fits about 7 rows: on busy days drop events that are already over first,
+  // and only preview tomorrow when today leaves room for it.
+  const MAX_ROWS=7;
+  let tEv=eventsOn(events,today);
+  while(tEv.length>MAX_ROWS){ const i=tEv.findIndex(e=>!e.allDay && e.end<=now); if(i<0) break; tEv.splice(i,1); }
+  let more=0; if(tEv.length>MAX_ROWS){ more=tEv.length-MAX_ROWS; tEv=tEv.slice(0,MAX_ROWS); }
+  const room=MAX_ROWS-tEv.length-1;
+  const mEv = room>=1 ? eventsOn(events,tomorrow).slice(0,Math.min(3,room)) : [];
+  let html = tEv.length ? tEv.map(e=>row(e,now)).join("") : `<div class="empty">Nothing on the calendar today.</div>`;
+  if(more) html += `<div class="note">+${more} more today</div>`;
+  if(mEv.length) html += `<div class="sub">Tomorrow</div>` + mEv.map(e=>row(e,new Date(0))).join("");
+  box.innerHTML = html;
+}
+async function refreshAll(){ await loadWeather(); await loadCalendar(); }
+refreshAll(); setInterval(refreshAll, SETTINGS.dataRefreshMinutes*60000);
+
+/* ---------------- quotes ---------------- */
+const QUOTES = [
+  ["The secret of getting ahead is getting started.","Mark Twain"],
+  ["It always seems impossible until it's done.","Nelson Mandela"],
+  ["Act as if what you do makes a difference. It does.","William James"],
+  ["Well done is better than well said.","Benjamin Franklin"],
+  ["What you do today can improve all your tomorrows.","Ralph Marston"],
+  ["Believe you can and you're halfway there.","Theodore Roosevelt"],
+  ["Do what you can, with what you have, where you are.","Theodore Roosevelt"],
+  ["The best way out is always through.","Robert Frost"],
+  ["Quality is not an act, it is a habit.","Aristotle"],
+  ["Well begun is half done.","Aristotle"],
+  ["The journey of a thousand miles begins with one step.","Lao Tzu"],
+  ["It does not matter how slowly you go as long as you do not stop.","Confucius"],
+  ["Our greatest glory is not in never falling, but in rising every time we fall.","Confucius"],
+  ["You must do the thing you think you cannot do.","Eleanor Roosevelt"],
+  ["The future belongs to those who believe in the beauty of their dreams.","Eleanor Roosevelt"],
+  ["In the middle of difficulty lies opportunity.","Albert Einstein"],
+  ["Life is like riding a bicycle. To keep your balance you must keep moving.","Albert Einstein"],
+  ["Whether you think you can or you think you can't, you're right.","Henry Ford"],
+  ["Nothing is particularly hard if you divide it into small jobs.","Henry Ford"],
+  ["Start where you are. Use what you have. Do what you can.","Arthur Ashe"],
+  ["You miss 100% of the shots you don't take.","Wayne Gretzky"],
+  ["Happiness is not something ready made. It comes from your own actions.","Dalai Lama"],
+  ["With the new day comes new strength and new thoughts.","Eleanor Roosevelt"],
+  ["Keep your face always toward the sunshine, and shadows will fall behind you.","Walt Whitman"],
+  ["Dwell on the beauty of life. Watch the stars, and see yourself running with them.","Marcus Aurelius"],
+  ["You have power over your mind, not outside events. Realize this, and you will find strength.","Marcus Aurelius"],
+  ["When you arise in the morning, think of what a precious privilege it is to be alive.","Marcus Aurelius"],
+  ["Luck is what happens when preparation meets opportunity.","Seneca"],
+  ["If you want to lift yourself up, lift up someone else.","Booker T. Washington"],
+  ["Success is not final, failure is not fatal: it is the courage to continue that counts.","Winston Churchill"],
+  ["Optimism is the faith that leads to achievement.","Helen Keller"],
+  ["Alone we can do so little; together we can do so much.","Helen Keller"],
+  ["The only way to do great work is to love what you do.","Steve Jobs"],
+  ["Stay hungry, stay foolish.","Stewart Brand"],
+  ["Everything you've ever wanted is on the other side of fear.","George Addair"],
+  ["It is never too late to be what you might have been.","George Eliot"],
+  ["The man who moves a mountain begins by carrying away small stones.","Confucius"],
+  ["Do one thing every day that scares you.","Mary Schmich"],
+  ["Hope is a waking dream.","Aristotle"],
+  ["Small deeds done are better than great deeds planned.","Peter Marshall"],
+  ["What we think, we become.","Buddha"],
+  ["Each morning we are born again. What we do today is what matters most.","Buddha"],
+  ["Courage is grace under pressure.","Ernest Hemingway"],
+  ["The harder I work, the luckier I get.","Samuel Goldwyn"],
+  ["Opportunities don't happen. You create them.","Chris Grosser"],
+  ["Don't watch the clock; do what it does. Keep going.","Sam Levenson"],
+  ["A goal without a plan is just a wish.","Antoine de Saint-Exupéry"],
+  ["If opportunity doesn't knock, build a door.","Milton Berle"]
+];
+function pickQuote(){
+  const now=new Date();
+  const dayIndex=Math.floor((now - new Date(now.getFullYear(),0,0))/86400000);
+  const slot = SETTINGS.quoteChangeMinutes>0
+      ? Math.floor((now.getHours()*60+now.getMinutes())/SETTINGS.quoteChangeMinutes) : 0;
+  return QUOTES[(dayIndex*7 + slot) % QUOTES.length];
+}
+let currentQuote=null;
+function showQuote(){
+  const q=pickQuote(); if(q===currentQuote) return;
+  const el=document.getElementById("quote");
+  el.classList.add("faded");
+  setTimeout(()=>{
+    document.getElementById("q-text").textContent=q[0];
+    document.getElementById("q-who").textContent=q[1];
+    el.classList.remove("faded"); currentQuote=q;
+  }, currentQuote?1200:0);
+}
+showQuote(); setInterval(showQuote,60000);
+
+
+/* ---------------- news debrief (Ctrl+Alt+N) ----------------
+   news.ps1 writes news-data.js; this page shows it and reads it aloud in SETTINGS.voice. */
+let NEWS=null, readId=null, speakIdx=-1, finishedAt=0, newsKey="";
+function voicesReady(){
+  return new Promise(res=>{
+    if(speechSynthesis.getVoices().length) return res();
+    speechSynthesis.addEventListener("voiceschanged",()=>res(),{once:true}); setTimeout(res,3000);
+  });
+}
+function pickVoice(){
+  const vs=speechSynthesis.getVoices(), w=SETTINGS.voice;
+  return vs.find(v=>v.name.includes(" "+w+" ")&&/Natural/.test(v.name)&&!/Multilingual/.test(v.name))
+      || vs.find(v=>v.name.includes(" "+w+" ")) || vs.find(v=>/Natural/.test(v.name)&&v.lang==="en-US") || null;
+}
+function say(text){
+  return new Promise(res=>{
+    if(!text) return res();
+    const u=new SpeechSynthesisUtterance(text), v=pickVoice(); if(v){u.voice=v;u.lang=v.lang}
+    u.rate=SETTINGS.voiceRate; u.onend=res; u.onerror=res; speechSynthesis.speak(u);
+  });
+}
+async function readBriefing(n){
+  readId=n.id; finishedAt=0; speakIdx=-1; renderNews();
+  await voicesReady();
+  const leads={National:"In national news.",US:"In U.S. news.",World:"Around the world.",Tech:"In tech.",Local:"Closer to home."};
+  const items=[].concat(n.items||[]); let sec="";
+  await say(n.intro); 
+  for(let i=0;i<items.length;i++){
+    if(readId!==n.id) return;
+    speakIdx=i; renderNews();
+    const it=items[i]; let lead=""; if(it.section!==sec){sec=it.section; lead=(leads[sec]||"")+" ";}
+    await say(lead+it.headline+". "+it.summary);
+  }
+  if(readId!==n.id) return;
+  speakIdx=-1; renderNews(); await say(n.outro);
+  if(readId===n.id){ finishedAt=Date.now(); renderNews(); }
+}
+function stopReading(){ readId=null; speakIdx=-1; speechSynthesis.cancel(); }
+function newsVisible(n){
+  if(!n) return false; const age=Date.now()-n.id;
+  if(n.status==="loading") return age<15*60000;
+  if(n.status==="error") return age<60000;
+  if(n.status==="ready") return readId===n.id && (!finishedAt || Date.now()-finishedAt<3*60000);
+  return false;
+}
+function renderNews(){
+  const n=NEWS, el=document.getElementById("news"), vis=newsVisible(n);
+  el.classList.toggle("show",vis); if(!vis) return;
+  const key=[n.id,n.status,speakIdx].join("|"); if(key===newsKey) return; newsKey=key;
+  const day=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+  const head=`<div class="news-head"><h2>News debrief</h2><span>${day}${n.created?" · "+n.created:""}</span></div>`;
+  if(n.status!=="ready"){
+    el.innerHTML=head+`<div class="news-wait">${n.status==="loading"?'<div class="dots"><span></span><span></span><span></span></div>':""}<div>${esc(n.message)}</div></div>`;
+    return;
+  }
+  const items=[].concat(n.items||[]);
+  el.innerHTML=head+(n.intro?`<div class="news-intro">${esc(n.intro)}</div>`:"")+
+    `<div class="news-grid${items.length>6?" dense":""}">`+items.map((it,i)=>
+      `<div class="story${i===speakIdx?" on":""}" data-s="${esc(it.section)}"><div class="tag">${esc(it.section==="US"?"U.S.":it.section)}</div>`+
+      `<h3>${esc(it.headline)}</h3><p>${esc(it.summary)}</p><div class="src">${esc(it.source)}</div></div>`).join("")+`</div>`;
+}
+async function checkNews(){
+  if(!(await loadData("news-data.js")) || !window.NEWS_DATA) return;
+  const n=window.NEWS_DATA; NEWS=n;
+  if(n.status==="stopped"){ if(readId) stopReading(); }
+  else if(n.status==="ready" && readId!==n.id && Date.now()-n.id<10*60000 && n.id!==window.__lastRead){
+    window.__lastRead=n.id; readBriefing(n);
+  } else if(n.status!=="ready" && readId && readId!==n.id){ stopReading(); }
+  renderNews();
+}
+setInterval(checkNews,2000); checkNews();
+
+/* full reload once a day at 3:00 so it never goes stale */
+setInterval(()=>{const n=new Date(); if(hour24(n)===3 && n.getMinutes()===0) location.reload();},60000);
+
+/* click anywhere to go fullscreen (press Esc to exit) */
+document.addEventListener("click",()=>{ if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{}); });
+</script>
+</body>
+</html>

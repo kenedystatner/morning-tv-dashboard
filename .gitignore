@@ -1,0 +1,18 @@
+# ---- Your private settings and secrets (never commit these) ----
+config.json
+claude-api-key.txt
+calendar-link.txt
+
+# ---- Files the dashboard writes while running ----
+config.js
+calendar-data.js
+weather-data.js
+news-data.js
+news-history.txt
+news-costs.csv
+*-log.txt
+audio-previous.txt
+window-positions.json
+
+# ---- The dashboard's own Edge browser profile ----
+edge-profile/

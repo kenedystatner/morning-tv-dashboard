@@ -1,0 +1,29 @@
+{
+  "tv": {
+    "ip": "192.168.1.50",
+    "hdmiInput": 1,
+    "soundDevice": "EXAMPLE-TV"
+  },
+  "pcHasOwnMonitor": true,
+  "location": {
+    "city": "Springfield",
+    "region": "Illinois",
+    "country": "US",
+    "latitude": 39.8017,
+    "longitude": -89.6436,
+    "timeZone": "America/Chicago"
+  },
+  "units": "fahrenheit",
+  "schedule": {
+    "startTime": "08:00",
+    "days": "daily",
+    "hoursOn": 3
+  },
+  "news": {
+    "voice": "Andrew",
+    "rate": 1.0,
+    "model": "claude-haiku-5-5",
+    "maxSearches": 6
+  },
+  "dataRefreshMinutes": 5
+}
