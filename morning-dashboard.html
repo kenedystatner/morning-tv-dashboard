@@ -395,7 +395,7 @@ async function loadCalendar(){
     box.innerHTML=`<div class="empty">No calendar yet.</div><div class="note">Add your calendar's secret iCal link to calendar-link.txt in the dashboard folder (or run install.ps1 again).</div>`;
     return;
   }
-  const events = [].concat(window.CALENDAR_ICS).flatMap(t=>parseICS(t));
+  const events = [].concat(window.CALENDAR_ICS).flatMap(t=>parseICS(typeof t==="string"?t:(t&&t.value)||""));
   const now=new Date(), today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   const tomorrow=new Date(+today+86400000);
   // The panel fits about 7 rows: on busy days drop events that are already over first,

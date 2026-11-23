@@ -8,6 +8,7 @@
 - Turning the TV off with its remote now puts the PC back to normal (monitor, sound, windows) within about 30 seconds.
 - The dashboard opens as a full-screen Edge app window instead of kiosk mode, so Windows keys keep working.
 - News briefings never show more than 8 stories.
+- Fixed: on some PCs the calendar downloaded but never appeared (PowerShell saved it as an object instead of text).
 
 ## 1.0.1 (2026-11-21)
 

@@ -57,5 +57,5 @@ foreach ($l in $links) {
   } catch { Log "calendar $n FAILED: $($_.Exception.Message)" }
 }
 if ($texts.Count) {
-  Set-Content (Join-Path $Dir "calendar-data.js") ("window.CALENDAR_ICS = " + (ConvertTo-Json -InputObject $texts -Compress) + ";") -Encoding UTF8
+  Set-Content (Join-Path $Dir "calendar-data.js") ("window.CALENDAR_ICS = " + (ConvertTo-Json -InputObject ([string[]]@($texts | ForEach-Object { [string]$_ })) -Compress) + ";") -Encoding UTF8
 }
